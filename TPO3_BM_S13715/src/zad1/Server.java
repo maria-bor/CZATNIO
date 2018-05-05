@@ -22,7 +22,11 @@ import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.SelectorProvider;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+
+import sun.nio.cs.ext.ISCII91;
 
 public class Server {
 
@@ -31,8 +35,12 @@ public class Server {
 	private ServerSocketChannel serverSocketChannel;
 	private Selector selector;
 	private volatile boolean serverRunning = true;
-	private Map<SocketChannel, Integer> dataSizeToRead = new HashMap<SocketChannel, Integer>();
+	private Map<SocketChannel, Integer> dataSizeToRead;
+	private Map<String, SocketChannel> loginOnChannel;
 	private static Thread threadServer;
+	private Map<String, String> usersLoginData;
+	private List<String> listLoggedUsers;
+	private Map<String, User> registeredUsers;
 	
 	public Server(InetAddress inetAddres, int port) {
 		this.port = port;
@@ -50,6 +58,12 @@ public class Server {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}	
+		
+		this.usersLoginData = new HashMap<String, String>();
+		this.dataSizeToRead = new HashMap<SocketChannel, Integer>();
+		this.loginOnChannel = new HashMap<String, SocketChannel>();
+		this.listLoggedUsers = new LinkedList<String>();
+		this.registeredUsers = new HashMap<String, User>();
 	}
 	
 	@SuppressWarnings("rawtypes")
@@ -88,12 +102,13 @@ public class Server {
 	}
 	
 	private void read(SelectionKey key) {
+		System.out.println("READ()");
 		SocketChannel sc = (SocketChannel) key.channel();		
 		Integer s = dataSizeToRead.get(sc);
 		int numbetOfBytes = 0;
 		int len = 0;
 		
-		if (s == 0) {
+		if (s == null) {
 			ByteBuffer bb = ByteBuffer.allocate(4);
 			try {				
 				numbetOfBytes = sc.read(bb);
@@ -126,11 +141,11 @@ public class Server {
 			}
 			else {
 				dataSizeToRead.put(sc, null);
-				len = 0;
+				len = s.intValue();
 			}
 		}
 		else {
-			len = s;
+			len = s.intValue();
 		}
 		ByteBuffer bb2 = ByteBuffer.allocate(len);
 		try {
@@ -153,14 +168,29 @@ public class Server {
 		}
 		
 		if (numbetOfBytes == len) {
-			dataSizeToRead.put(sc, 0);
+			dataSizeToRead.put(sc, null);
 			ByteArrayInputStream bais = new ByteArrayInputStream(bb2.array());
 			try(ObjectInputStream ois = new ObjectInputStream(bais)) {
 				ICommand cmd = (ICommand) ois.readObject();
 				Object result = null;
 				// check instance of Class ?? TO-DO
+				if (cmd instanceof RegisterCommand) {
+					try {
+						result = registerUser((RegisterCommand) cmd, key);
+					} catch (Exception e) {
+						e.printStackTrace();
+					}				
+				}
+				else if (cmd instanceof LoginCommand) {
+					result = loginUser((LoginCommand) cmd);
+				}
+				else if (cmd instanceof UnregisterCommand) {
+					unregisterUser((UnregisterCommand)cmd);
+				}
+				
 				if (result != null)
 					send(sc, result);
+				
 			} catch (IOException e) {
 				e.printStackTrace();
 			} catch (ClassNotFoundException e) {
@@ -195,10 +225,43 @@ public class Server {
 			e.printStackTrace();
 		}
  	}
-	
 
 	public static Thread getThreadServer() {
 		return threadServer;
+	}
+	
+	public Object registerUser(RegisterCommand regCmd, SelectionKey key) {
+		if (!this.usersLoginData.containsKey(regCmd.getLogin())) {
+			usersLoginData.put(regCmd.getLogin(), regCmd.getHaslo());	
+			loginOnChannel.put(regCmd.getLogin(),  (SocketChannel) key.channel());
+			registeredUsers.put(regCmd.getLogin(), regCmd.getUser());
+			return new String("SUCCESS");
+		}
+		else {
+			return new String("FAIL");
+		}
+	}
+	
+	public void unregisterUser(UnregisterCommand unregCmd) {
+		if (this.registeredUsers.containsKey(unregCmd.getLogin())) {
+			this.registeredUsers.remove(unregCmd.getLogin());
+		}
+		if (this.usersLoginData.containsKey(unregCmd.getLogin())) {
+			this.usersLoginData.remove(unregCmd.getLogin());
+		}
+		if (this.loginOnChannel.containsKey(unregCmd.getLogin())) {
+			this.loginOnChannel.remove(unregCmd.getLogin());
+		}
+	}
+	
+	public Object loginUser(LoginCommand logCmd) {
+		if (this.usersLoginData.containsKey(logCmd.getLogin())) {
+			if (this.usersLoginData.get(logCmd.getLogin()).equals(logCmd.getHaslo())) {
+				this.listLoggedUsers.add(logCmd.getLogin());
+				return new String("SUCCESS");
+			}
+		}
+		return new String("FAIL");
 	}
 	
   public static void main(String[] args) {

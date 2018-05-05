@@ -28,14 +28,14 @@ import java.util.Map;
 
 import sun.nio.cs.ext.ISCII91;
 
-public class Server {
+public class Server extends BaseCommunication {
 
 	private int port;
 	private InetAddress inetAddress;
 	private ServerSocketChannel serverSocketChannel;
 	private Selector selector;
 	private volatile boolean serverRunning = true;
-	private Map<SocketChannel, Integer> dataSizeToRead;
+	
 	private Map<String, SocketChannel> loginOnChannel;
 	private static Thread threadServer;
 	private Map<String, String> usersLoginData;
@@ -43,6 +43,7 @@ public class Server {
 	private Map<String, User> registeredUsers;
 	
 	public Server(InetAddress inetAddres, int port) {
+		super();
 		this.port = port;
 		this.inetAddress = inetAddres;
 		
@@ -59,8 +60,7 @@ public class Server {
 			e.printStackTrace();
 		}	
 		
-		this.usersLoginData = new HashMap<String, String>();
-		this.dataSizeToRead = new HashMap<SocketChannel, Integer>();
+		this.usersLoginData = new HashMap<String, String>();	
 		this.loginOnChannel = new HashMap<String, SocketChannel>();
 		this.listLoggedUsers = new LinkedList<String>();
 		this.registeredUsers = new HashMap<String, User>();
@@ -101,130 +101,34 @@ public class Server {
 		}
 	}
 	
-	private void read(SelectionKey key) {
-		System.out.println("READ()");
-		SocketChannel sc = (SocketChannel) key.channel();		
-		Integer s = dataSizeToRead.get(sc);
-		int numbetOfBytes = 0;
-		int len = 0;
-		
-		if (s == null) {
-			ByteBuffer bb = ByteBuffer.allocate(4);
-			try {				
-				numbetOfBytes = sc.read(bb);
-				if (numbetOfBytes != 4) {
-					System.out.println("#########");
-				}
-			} 
-			catch (IOException e) {
-			e.printStackTrace();
-			key.cancel();
-			}
-			
-			if (numbetOfBytes == -1) {
+	public void read(SelectionKey key) {
+		super.read(key);
+		if (cmd != null) {
+			Object result = null;
+			// check instance of Class ?? TO-DO
+			if (cmd instanceof RegisterCommand) {
 				try {
-					key.channel().close();
-					System.out.println("@@@@@@@@@@");
-				} catch (IOException e) {
+					result = registerUser((RegisterCommand) cmd, key);
+				} catch (Exception e) {
 					e.printStackTrace();
-				}
-				key.cancel();
-				return;
+				}				
+			}
+			else if (cmd instanceof LoginCommand) {
+				result = loginUser((LoginCommand) cmd);
+			}
+			else if (cmd instanceof UnregisterCommand) {
+				unregisterUser((UnregisterCommand)cmd);
 			}
 			
-			if (numbetOfBytes == 4) {
-				// byte[] => int
-				for (int i = 0; i < 4; ++i) {
-					len |= (bb.array()[3-i] & 0xff) << (i << 3);
-				}
-				dataSizeToRead.put(sc, len);
-			}
-			else {
-				dataSizeToRead.put(sc, null);
-				len = s.intValue();
-			}
+			if (result != null)
+				send(sc, result);
 		}
 		else {
-			len = s.intValue();
+			System.out.println("[Server.READ() FAILED]");
 		}
-		ByteBuffer bb2 = ByteBuffer.allocate(len);
-		try {
-			numbetOfBytes = sc.read(bb2);
-		} catch (IOException e) {
-			e.printStackTrace();
-			key.cancel();
-			return;
-		}
-		
-		if (numbetOfBytes == -1) {
-			try {
-				key.channel().close();
-				System.out.println("$$$$$$$$$$");
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-			key.cancel();
-			return;
-		}
-		
-		if (numbetOfBytes == len) {
-			dataSizeToRead.put(sc, null);
-			ByteArrayInputStream bais = new ByteArrayInputStream(bb2.array());
-			try(ObjectInputStream ois = new ObjectInputStream(bais)) {
-				ICommand cmd = (ICommand) ois.readObject();
-				Object result = null;
-				// check instance of Class ?? TO-DO
-				if (cmd instanceof RegisterCommand) {
-					try {
-						result = registerUser((RegisterCommand) cmd, key);
-					} catch (Exception e) {
-						e.printStackTrace();
-					}				
-				}
-				else if (cmd instanceof LoginCommand) {
-					result = loginUser((LoginCommand) cmd);
-				}
-				else if (cmd instanceof UnregisterCommand) {
-					unregisterUser((UnregisterCommand)cmd);
-				}
-				
-				if (result != null)
-					send(sc, result);
-				
-			} catch (IOException e) {
-				e.printStackTrace();
-			} catch (ClassNotFoundException e) {
-				e.printStackTrace();
-			}
-		}		
 	}
 	
-	private void send(SocketChannel sc, Object result) {
-		byte[] size = new byte[4];
-		byte[] data;
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		
-		try(ObjectOutputStream oos = new ObjectOutputStream(baos)){
-			oos.writeObject(result);
-			oos.flush();
-			data = baos.toByteArray();
-			
-			int number = data.length;;
-			// int -> byte[]
-			for (int i = 0; i < 4; ++i) {
-				int shift = i << 3; // i * 8
-				size[3-i] = (byte)((number & (0xff << shift)) >>> shift);
-			}
-			
-			ByteBuffer sizeBB = ByteBuffer.wrap(size);
-			ByteBuffer dataBB = ByteBuffer.wrap(data);
-			sc.write(sizeBB);
-			sc.write(dataBB);
-			
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
- 	}
+	
 
 	public static Thread getThreadServer() {
 		return threadServer;

@@ -1,6 +1,8 @@
 package zad1;
 
-public class User {
+import java.io.Serializable;
+
+public class User implements Serializable{
 	private String imie;
 	private String nazwisko;
 	

@@ -136,9 +136,11 @@ public class GUI extends JFrame implements ActionListener{
 		buttonRejestracja.setActionCommand("Rejestracja");
 		
 		textAreaDisable = new JTextArea(50,20);
-		scrolltextAreaDisable = new JScrollPane(textAreaDisable); 
+		scrolltextAreaDisable = new JScrollPane(textAreaDisable);
+		scrolltextAreaDisable.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
 		textAreaEnable = new JTextArea(3,20);
 		scrolltextAreaEnable = new JScrollPane(textAreaEnable);
+		scrolltextAreaEnable.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
 		textAreaEnable.addKeyListener(new KeyListener() {
 			
 			@Override
@@ -230,9 +232,9 @@ public class GUI extends JFrame implements ActionListener{
 		buttonWylogujSie.addActionListener(this);
 		buttonWylogujSie.setActionCommand("wyloguj się");
 		
-		panelChat.add(textAreaDisable, BorderLayout.NORTH);
-		panelChatPomocniczy.add(textAreaEnable, BorderLayout.NORTH);
+		panelChat.add(scrolltextAreaDisable, BorderLayout.NORTH);
 		panelChatPomocniczy.add(listaKlientow, BorderLayout.SOUTH);
+		panelChatPomocniczy.add(scrolltextAreaEnable, BorderLayout.NORTH);
 		panelChat.add(panelChatPomocniczy, BorderLayout.CENTER);
 		panelChat.add(buttonWylogujSie, BorderLayout.SOUTH);
 		

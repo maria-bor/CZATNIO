@@ -6,34 +6,24 @@
 
 package zad1;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.channels.spi.SelectorProvider;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import sun.nio.cs.ext.ISCII91;
-
 public class Server extends BaseCommunication {
 
 	private int port;
 	private InetAddress inetAddress;
 	private ServerSocketChannel serverSocketChannel;
-	private Selector selector;
 	private volatile boolean serverRunning = true;
 	
 	private Map<String, SocketChannel> loginOnChannel;
@@ -50,7 +40,6 @@ public class Server extends BaseCommunication {
 		InetSocketAddress inetSocketAddress = new InetSocketAddress(inetAddres, port);
 		
 		try {
-			this.selector = SelectorProvider.provider().openSelector();
 			this.serverSocketChannel = ServerSocketChannel.open();
 			this.serverSocketChannel.configureBlocking(false);
 			
@@ -128,21 +117,19 @@ public class Server extends BaseCommunication {
 		}
 	}
 	
-	
-
 	public static Thread getThreadServer() {
 		return threadServer;
 	}
 	
-	public Object registerUser(RegisterCommand regCmd, SelectionKey key) {
+	public Object registerUser(RegisterCommand regCmd, SelectionKey key) throws Exception {
 		if (!this.usersLoginData.containsKey(regCmd.getLogin())) {
 			usersLoginData.put(regCmd.getLogin(), regCmd.getHaslo());	
-			loginOnChannel.put(regCmd.getLogin(),  (SocketChannel) key.channel());
+			loginOnChannel.put(regCmd.getLogin(), (SocketChannel) key.channel());
 			registeredUsers.put(regCmd.getLogin(), regCmd.getUser());
-			return new String("SUCCESS");
+			return regCmd.handle(new String("SUCCESS"));
 		}
 		else {
-			return new String("FAIL");
+			return regCmd.handle(new String("FAIL"));
 		}
 	}
 	

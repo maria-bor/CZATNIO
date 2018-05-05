@@ -32,12 +32,10 @@ public class Main {
 	    			e.printStackTrace();
 	    		}        
 	    	}
-	    };
-	    
+	    };	    
 	    
 	    Thread threadClient = new Thread(runClient);
-	    Thread threadClient2 = new Thread(runClient2);
-	    
+	    Thread threadClient2 = new Thread(runClient2);	    
 	    
 	    threadClient.start();
 	    threadClient2.start();

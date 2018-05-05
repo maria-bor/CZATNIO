@@ -20,6 +20,7 @@ import java.nio.channels.SocketChannel;
 public class Client {
 	private InetSocketAddress inetSocketAddress;
 	private SocketChannel socketChannel;
+	@SuppressWarnings("unused")
 	private Object cmd = null;
 	private Object result = null;
 	
@@ -50,7 +51,6 @@ public class Client {
 					e1.printStackTrace();
 				}
 			}
-			
 		}
 	}
 	

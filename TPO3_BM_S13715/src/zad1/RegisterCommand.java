@@ -1,5 +1,7 @@
 package zad1;
 
+import java.io.Serializable;
+
 public class RegisterCommand implements ICommand{
 	private String login;
 	private String haslo;
@@ -25,7 +27,19 @@ public class RegisterCommand implements ICommand{
 
 	@Override
 	public Object handle(Object... args) throws Exception {
-		return null;
+		return new RegisterResponse(args[0].toString());
 	}
 
+	public class RegisterResponse implements Serializable {
+		private String result;
+		
+		public RegisterResponse(String result) {
+			this.result = result;
+		}
+
+		public String getResult() {
+			return result;
+		}
+	}
 }
+

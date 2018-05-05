@@ -7,7 +7,9 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
+import java.nio.channels.spi.SelectorProvider;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -15,9 +17,15 @@ public class BaseCommunication {
 	protected ICommand cmd;
 	protected Map<SocketChannel, Integer> dataSizeToRead;
 	protected SocketChannel sc;
+	protected Selector selector;
 	
 	public BaseCommunication() {
 		this.dataSizeToRead = new HashMap<SocketChannel, Integer>();
+		try {
+			this.selector = SelectorProvider.provider().openSelector();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	protected void read(SelectionKey key) {

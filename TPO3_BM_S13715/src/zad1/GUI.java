@@ -299,8 +299,9 @@ public class GUI extends JFrame implements ActionListener{
 				if (this.hasloRej.getText().equals(this.powtorzHaslo.getText())) {
 					this.user = new User(this.imie.getText(), this.nazwisko.getText());
 					RegisterCommand regCmd = new RegisterCommand(this.loginRej.getText(), this.hasloRej.getText(), user);
-					String s = (String) client.sendAndReceive(regCmd);
-					if (s.equals("SUCCESS")) {
+					Object o = client.sendAndReceive(regCmd);
+					RegisterCommand.RegisterResponse response = (RegisterCommand.RegisterResponse) o;
+					if (response.getResult().equals("SUCCESS")) {
 						this.loginRej.setText("");
 						this.imie.setText("");
 						this.nazwisko.setText("");

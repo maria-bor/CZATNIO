@@ -14,12 +14,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class BaseCommunication {
-	protected ICommand cmd;
+	protected Object dataPackage;
 	protected Map<SocketChannel, Integer> dataSizeToRead;
-	protected SocketChannel sc;
+	protected SocketChannel scMain;
 	protected Selector selector;
 	
 	public BaseCommunication() {
+		System.out.println("BaseCommunication()");
 		this.dataSizeToRead = new HashMap<SocketChannel, Integer>();
 		try {
 			this.selector = SelectorProvider.provider().openSelector();
@@ -29,18 +30,18 @@ public class BaseCommunication {
 	}
 	
 	protected void read(SelectionKey key) {
-		System.out.println("READ()");
-		this.sc = (SocketChannel) key.channel();		
-		Integer s = dataSizeToRead.get(sc);
+		System.out.println("BC.read()");
+		SocketChannel scLocal = (SocketChannel) key.channel();		
+		Integer s = dataSizeToRead.get(scLocal);
 		int numbetOfBytes = 0;
 		int len = 0;
 		
 		if (s == null) {
 			ByteBuffer bb = ByteBuffer.allocate(4);
 			try {				
-				numbetOfBytes = sc.read(bb);
+				numbetOfBytes = scLocal.read(bb);
 				if (numbetOfBytes != 4) {
-					System.out.println("#########");
+					System.out.println("BC.numbetOfBytes != 4:"+numbetOfBytes);
 				}
 			} 
 			catch (IOException e) {
@@ -51,7 +52,7 @@ public class BaseCommunication {
 			if (numbetOfBytes == -1) {
 				try {
 					key.channel().close();
-					System.out.println("@@@@@@@@@@");
+					System.out.println("BC.numbetOfBytes == -1");
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
@@ -64,50 +65,54 @@ public class BaseCommunication {
 				for (int i = 0; i < 4; ++i) {
 					len |= (bb.array()[3-i] & 0xff) << (i << 3);
 				}
-				dataSizeToRead.put(sc, len);
+				dataSizeToRead.put(scLocal, len);
 			}
 			else {
-				dataSizeToRead.put(sc, null);
-				len = s.intValue();
+				dataSizeToRead.put(scLocal, null);
+				len = 0;
 			}
 		}
 		else {
 			len = s.intValue();
 		}
-		ByteBuffer bb2 = ByteBuffer.allocate(len);
-		try {
-			numbetOfBytes = sc.read(bb2);
-		} catch (IOException e) {
-			e.printStackTrace();
-			key.cancel();
-			return;
-		}
 		
-		if (numbetOfBytes == -1) {
+		if(len > 0) {
+			ByteBuffer bb2 = ByteBuffer.allocate(len);
 			try {
-				key.channel().close();
-				System.out.println("$$$$$$$$$$");
+				numbetOfBytes = scLocal.read(bb2);
 			} catch (IOException e) {
 				e.printStackTrace();
+				key.cancel();
+				return;
 			}
-			key.cancel();
-			return;
+
+			if (numbetOfBytes == -1) {
+				try {
+					key.channel().close();
+					System.out.println("BC.numbetOfBytes == -1");
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				key.cancel();
+				return;
+			}
+
+			if (numbetOfBytes == len) {
+				dataSizeToRead.put(scLocal, null);
+				ByteArrayInputStream bais = new ByteArrayInputStream(bb2.array());
+				try(ObjectInputStream ois = new ObjectInputStream(bais)) {
+					this.dataPackage = ois.readObject();			
+				} catch (IOException e) {
+					e.printStackTrace();
+				} catch (ClassNotFoundException e) {
+					e.printStackTrace();
+				}
+			}
 		}
-		
-		if (numbetOfBytes == len) {
-			dataSizeToRead.put(sc, null);
-			ByteArrayInputStream bais = new ByteArrayInputStream(bb2.array());
-			try(ObjectInputStream ois = new ObjectInputStream(bais)) {
-				this.cmd = (ICommand) ois.readObject();			
-			} catch (IOException e) {
-				e.printStackTrace();
-			} catch (ClassNotFoundException e) {
-				e.printStackTrace();
-			}
-		}		
 	}
 	
-	protected void send(SocketChannel sc, Object result) {
+	protected void send(SocketChannel scLocal, Object result) {
+		System.out.println("BC.send()");
 		byte[] size = new byte[4];
 		byte[] data;
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -126,8 +131,8 @@ public class BaseCommunication {
 			
 			ByteBuffer sizeBB = ByteBuffer.wrap(size);
 			ByteBuffer dataBB = ByteBuffer.wrap(data);
-			sc.write(sizeBB);
-			sc.write(dataBB);
+			scLocal.write(sizeBB);
+			scLocal.write(dataBB);
 			
 		} catch (IOException e) {
 			e.printStackTrace();

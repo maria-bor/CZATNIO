@@ -12,49 +12,21 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.nio.channels.SocketChannel;
 
-public class Client {
-	private InetSocketAddress inetSocketAddress;
-	private SocketChannel socketChannel;
-	@SuppressWarnings("unused")
+public class Client extends ClientCommunicationThread {
 	private Object cmd = null;
 	private Object result = null;
 	
 	public Client(InetAddress inetAddres, int port) {
-		this.inetSocketAddress = new InetSocketAddress(inetAddres, port);
-		try {
-			this.socketChannel = SocketChannel.open();
-			this.socketChannel.configureBlocking(true);
-			connectToServer();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
-	
-	private void connectToServer() {
-		boolean isConnected = false;
-		while(!isConnected) {
-			try {
-				this.socketChannel.connect(inetSocketAddress);
-				isConnected = true;
-				System.out.println("[CLIENT: CONNECTED]");
-			} catch (IOException e) {
-				e.printStackTrace();
-				try {
-					Thread.sleep(1000);
-					System.out.println("[CLIENT: STILL CONNECTING...]");
-				} catch (InterruptedException e1) {
-					e1.printStackTrace();
-				}
-			}
-		}
+		super(inetAddres, port);
+		System.out.println("Client()");
 	}
 	
 	public void sendOnly(ICommand cmd) {
+		System.out.println("[CLIENT.sendOnly()]");
+		System.out.println("isConnected:"+this.scMain.isConnected()+"isOpened:"+this.scMain.isOpen()+"isRegistered:"+this.scMain.isRegistered());
 		this.cmd = cmd;
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		
@@ -74,8 +46,9 @@ public class Client {
 
 			ByteBuffer sizeBuffer = ByteBuffer.wrap(data);
 			ByteBuffer bb = ByteBuffer.wrap(buf);
-			this.socketChannel.write(sizeBuffer);
-			this.socketChannel.write(bb);
+
+			this.scMain.write(sizeBuffer);
+			this.scMain.write(bb);
 		}
 		catch(IOException e) {
 			e.printStackTrace();
@@ -83,6 +56,7 @@ public class Client {
 	}
 	
 	public Object sendAndReceive(ICommand cmd) {
+		System.out.println("CLIENT.sendAndReceive()");
 		this.cmd = cmd;
 		sendOnly(cmd);
 		
@@ -91,7 +65,7 @@ public class Client {
 			int numRead = 0;
 			int totalRead = 0;
 			while (totalRead < 4) {
-				numRead = this.socketChannel.read(responseSize);
+				numRead = this.scMain.read(responseSize);
 				if(numRead != -1) {
 					totalRead += numRead;
 				}
@@ -110,7 +84,7 @@ public class Client {
 			ByteBuffer responseBuffer = ByteBuffer.allocate(len);
 			totalRead = 0;
 			while (totalRead < len) {
-				numRead = this.socketChannel.read(responseBuffer);
+				numRead = this.scMain.read(responseBuffer);
 				if (numRead != -1) {
 					totalRead += numRead;
 				}
@@ -127,15 +101,39 @@ public class Client {
 		}
 	}
 	
-	public void runClient() {
+	public void runGUI() {
 		GUI.runGUI(this);
 	}
 	
 	  public static void main(String[] args) {
-		  try {
-			GUI.runGUI(new Client(InetAddress.getLocalHost(), 11111));
-		} catch (UnknownHostException e) {
-			e.printStackTrace();
-		}
+		  System.out.println("[MAIN: RUN CLIENT]");
+		  InetAddress inetAddress = null;
+		  int port;
+		  if (args.length == 2) {
+			  try {
+				inetAddress = InetAddress.getByName(args[0]);
+			} catch (UnknownHostException e) {
+				e.printStackTrace();
+			}
+			  port = Integer.parseInt(args[1]);
+		  }
+		  else {
+			  try {
+				inetAddress = InetAddress.getLocalHost();
+			} catch (UnknownHostException e) {
+				e.printStackTrace();
+			}
+			  port = 11111;
+		  }
+		  final InetAddress inetAddress2 = inetAddress;
+		  Runnable runClient = new Runnable() {
+			
+			@Override
+			public void run() {
+				new Client(inetAddress2, port).runGUI();
+			}
+		};
+		Thread threadClient = new Thread(runClient);
+		threadClient.start();
 	  }
 }

@@ -12,6 +12,8 @@ import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.swing.BorderFactory;
 import javax.swing.DefaultComboBoxModel;
@@ -26,18 +28,20 @@ import javax.swing.JSeparator;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
-import javax.swing.border.Border;
 
-@SuppressWarnings("serial")
+import zad1.MessageCommand.Response;
+
 public class GUI extends JFrame implements ActionListener{
 
 	private Client client = null;
 	private String login;
 	private User user;
+	private Map<String, String> listUser; // <User.toString(), login>
+	private Map<String, User> listLoginToUser; // <login, User>
+	
 	private JLabel labelLogin;
 	private JLabel labelImie;
 	private JLabel labelNazwisko;
-	private JLabel labelHaslo;
 	private JLabel labelHasloRej;
 	private JLabel labelPowtorzHaslo;
 	
@@ -71,6 +75,9 @@ public class GUI extends JFrame implements ActionListener{
 
 	GUI(Client client) {
 		this.client = client;
+		this.client.setGUI(this);
+		this.listUser = new HashMap<String, String>();
+		this.listLoginToUser = new HashMap<String, User>();
 		
 		loginLog = new JTextField("Wprowadz login");
 		loginLog.addFocusListener(new FocusListener() {
@@ -157,8 +164,12 @@ public class GUI extends JFrame implements ActionListener{
 			public void keyPressed(KeyEvent e) {
 				if(e.getKeyCode() == KeyEvent.VK_ENTER) {
 					if (listaKlientow.getSelectedIndex() != 0) {
-						MessageCommand msg = new MessageCommand(textAreaEnable.getText(), (String)listaKlientow.getSelectedItem(), login);
-						client.sendAndReceive(msg);
+						String s = (String)listaKlientow.getSelectedItem();
+						System.out.println("listUser.contains()"+listUser.containsKey(s));
+						MessageCommand msg = new MessageCommand(textAreaEnable.getText(), listUser.get(s), login);
+						client.sendOnly(msg);
+						textAreaEnable.setEditable(false);
+						e.consume();
 					}
 					
 				}			
@@ -254,6 +265,29 @@ public class GUI extends JFrame implements ActionListener{
 	    this.setLocation(x, y);
 	} 
 	
+//	public void serverResponse(IResponse response) {
+//		if (response != null) {
+//			
+//			if (response instanceof RegisterCommand.Response) {
+//				try {
+//					// TO-DO
+//					
+//				} catch (Exception e) {
+//					e.printStackTrace();
+//				}				
+//			}
+////			else if (cmd instanceof LoginCommand) {
+////				//
+////			}
+////			else if (cmd instanceof UnregisterCommand) {
+////				//
+////			}
+//		}
+//		else {
+//			System.out.println("[Server.READ() FAILED]");
+//		}
+//	}
+	
 	public static void runGUI(Client client){
 	    SwingUtilities.invokeLater(new Runnable() {
 	      public void run() {
@@ -272,6 +306,7 @@ public class GUI extends JFrame implements ActionListener{
 				LoginCommand logCmd = new LoginCommand(this.loginLog.getText(), this.haslo.getText());
 				String s = (String) client.sendAndReceive(logCmd);
 				if (s.equals("SUCCESS")) {
+					client.startThread();
 					login = logCmd.getLogin();
 					getContentPane().removeAll();
 					getContentPane().repaint();
@@ -300,7 +335,8 @@ public class GUI extends JFrame implements ActionListener{
 					this.user = new User(this.imie.getText(), this.nazwisko.getText());
 					RegisterCommand regCmd = new RegisterCommand(this.loginRej.getText(), this.hasloRej.getText(), user);
 					Object o = client.sendAndReceive(regCmd);
-					RegisterCommand.RegisterResponse response = (RegisterCommand.RegisterResponse) o;
+					System.out.println("GUI.responceReceived");
+					RegisterCommand.Response response = (RegisterCommand.Response) o;
 					if (response.getResult().equals("SUCCESS")) {
 						this.loginRej.setText("");
 						this.imie.setText("");
@@ -325,9 +361,48 @@ public class GUI extends JFrame implements ActionListener{
 			}
 			else {
 				UnregisterCommand unregCmd = new UnregisterCommand(this.loginLog.getText(), this.haslo.getText());
-				
+				//TODO
 			}
 		}
 	}
 	
+	public void updateComboBox(LoggedUsersMapCommand cmd) {
+		DefaultComboBoxModel model = (DefaultComboBoxModel) listaKlientow.getModel();
+		Map<String, User> newlistUser  = null;
+		try {
+			newlistUser = (Map<String, User>)cmd.handle();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		if (cmd.isUserLogged()) {	
+			for(Map.Entry<String, User> entry : newlistUser.entrySet()) {
+				model.addElement(entry.getValue().toString());
+				this.listUser.put(entry.getValue().toString(), entry.getKey());
+				this.listLoginToUser.put(entry.getKey(), entry.getValue());
+			}
+		}
+		listaKlientow.setModel(model);
+	}
+
+	public void showReceivedText(MessageCommand mc) {
+		System.out.println("showReceivedText()");
+		textAreaDisable.append(this.listLoginToUser.get(mc.getSender()).toString() + ":\n");
+		textAreaDisable.append(mc.getText() + "\n");
+	}
+
+	public void showSendedText(Response response) {
+		System.out.println("showSendedText()");
+		if(response.getResult().equals("SUCCESS")) {
+			this.textAreaDisable.append(listaKlientow.getSelectedItem().toString() + ":\n");
+			this.textAreaDisable.append(this.textAreaEnable.getText() + "\n");
+			this.textAreaEnable.setText("");
+//			this.textAreaEnable.setCaretPosition(0);
+			this.textAreaEnable.selectAll();
+			this.textAreaEnable.replaceSelection("");
+		}
+		else {
+			JOptionPane.showMessageDialog(this, "Upps.. Problem z wysyłaniem wiadomości.", "Błąd sendingu.", JOptionPane.WARNING_MESSAGE, null);
+		}
+		this.textAreaEnable.setEditable(true);
+	}
 }

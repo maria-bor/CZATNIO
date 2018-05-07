@@ -19,24 +19,25 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import zad1.ICommand.IResponse;
+import zad1.MessageCommand.Response;
+
 public class Server extends BaseCommunication {
 
 	private int port;
-	private InetAddress inetAddress;
 	private ServerSocketChannel serverSocketChannel;
 	private volatile boolean serverRunning = true;
 	
 	private Map<String, SocketChannel> loginOnChannel;
 	private static Thread threadServer;
-	private Map<String, String> usersLoginData;
-	private List<String> listLoggedUsers;
-	private Map<String, User> registeredUsers;
+	private Map<String, String> usersLoginData; // <login, password>
+	private Map<String, User> loggedUsers; // <login>
+	private Map<String, User> registeredUsers; // <login, User(imie,nazwisko)>
 	
 	public Server(InetAddress inetAddres, int port) {
 		super();
 		this.port = port;
-		this.inetAddress = inetAddres;
-		
+
 		InetSocketAddress inetSocketAddress = new InetSocketAddress(inetAddres, port);
 		
 		try {
@@ -51,7 +52,7 @@ public class Server extends BaseCommunication {
 		
 		this.usersLoginData = new HashMap<String, String>();	
 		this.loginOnChannel = new HashMap<String, SocketChannel>();
-		this.listLoggedUsers = new LinkedList<String>();
+		this.loggedUsers = new HashMap<String, User>();
 		this.registeredUsers = new HashMap<String, User>();
 	}
 	
@@ -59,6 +60,7 @@ public class Server extends BaseCommunication {
 	public void runServer() {
 		while(serverRunning) {
 			try {
+				System.out.println("S.selector.select()");
 				this.selector.select();
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -74,6 +76,7 @@ public class Server extends BaseCommunication {
 				}
 				
 				if (key.isAcceptable()) {
+					System.out.println("key.isAcceptable");
 					try {
 						ServerSocketChannel serverSocketChannelTmp = (ServerSocketChannel) key.channel();
 						SocketChannel socketChannel = serverSocketChannelTmp.accept();
@@ -84,6 +87,7 @@ public class Server extends BaseCommunication {
 					}
 				}
 				else if (key.isReadable()) {
+					System.out.println("key.isAcceptable");
 					read(key);
 				}
 			}
@@ -91,29 +95,79 @@ public class Server extends BaseCommunication {
 	}
 	
 	public void read(SelectionKey key) {
+		System.out.println("Server.read()");
 		super.read(key);
-		if (cmd != null) {
+		SocketChannel scLocal = (SocketChannel) key.channel();
+		if (dataPackage != null && dataPackage instanceof ICommand) {
 			Object result = null;
-			// check instance of Class ?? TO-DO
-			if (cmd instanceof RegisterCommand) {
+			if (dataPackage instanceof RegisterCommand) {
 				try {
-					result = registerUser((RegisterCommand) cmd, key);
+					result = registerUser((RegisterCommand) dataPackage);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}				
 			}
-			else if (cmd instanceof LoginCommand) {
-				result = loginUser((LoginCommand) cmd);
+			else if (dataPackage instanceof LoginCommand) {
+				result = loginUser((LoginCommand) dataPackage);
 			}
-			else if (cmd instanceof UnregisterCommand) {
-				unregisterUser((UnregisterCommand)cmd);
+			else if (dataPackage instanceof UnregisterCommand) {
+				unregisterUser((UnregisterCommand)dataPackage);
+			}
+			else if (dataPackage instanceof MessageCommand) {
+				result = forwardMessage((MessageCommand)dataPackage);
 			}
 			
 			if (result != null)
-				send(sc, result);
+				send(scLocal, result);
+			
+			if (dataPackage instanceof LoginCommand && ((String)result).equals("SUCCESS")) {
+				broadcastLoggedUsers((LoginCommand)dataPackage, key, true);
+			}
+		}
+		else if(dataPackage != null && dataPackage instanceof IResponse) {
+			if (dataPackage instanceof MessageCommand.Response) {
+				forwardMessageResponse((MessageCommand.Response)dataPackage);
+			}
 		}
 		else {
 			System.out.println("[Server.READ() FAILED]");
+		}
+	}
+	
+	private void forwardMessageResponse(Response response) {
+		System.out.println("forwardMessageResponse()");
+		if (this.loginOnChannel.containsKey(response.getRecipient())) {
+			send(this.loginOnChannel.get(response.getRecipient()), response);
+		}
+		else {
+			System.out.println("forwardMessageResponse() FAIL");
+		}
+	}
+
+	private MessageCommand.Response forwardMessage(MessageCommand cmd) {
+		System.out.println("cmd.getRecipient()" + cmd.getRecipient());
+		if (this.loginOnChannel.containsKey(cmd.getRecipient())) {
+			send(this.loginOnChannel.get(cmd.getRecipient()), cmd);
+			return null;
+		}
+		else {
+			System.out.println("forwardMessage() FAIL");
+			return cmd.new Response(cmd.getSender(), cmd.getRecipient(), new String("FAIL"));
+		}
+	}
+	
+	private void broadcastLoggedUsers(LoginCommand logCmd, SelectionKey key, boolean isUserLogged) {
+		if (isUserLogged) {
+			for(Map.Entry<String, SocketChannel> entry : loginOnChannel.entrySet()) {
+				LoggedUsersMapCommand lumc = new LoggedUsersMapCommand(logCmd.getLogin(), registeredUsers.get(logCmd.getLogin()), isUserLogged);
+				send(entry.getValue(), lumc);
+			}	
+			send((SocketChannel) key.channel(), new LoggedUsersMapCommand(this.loggedUsers, isUserLogged));
+			loginOnChannel.put(logCmd.getLogin(), (SocketChannel) key.channel());
+			this.loggedUsers.put(logCmd.getLogin(), registeredUsers.get(logCmd.getLogin()));
+		}
+		else {
+			//TODO
 		}
 	}
 	
@@ -121,10 +175,9 @@ public class Server extends BaseCommunication {
 		return threadServer;
 	}
 	
-	public Object registerUser(RegisterCommand regCmd, SelectionKey key) throws Exception {
+	private Object registerUser(RegisterCommand regCmd) throws Exception {
 		if (!this.usersLoginData.containsKey(regCmd.getLogin())) {
-			usersLoginData.put(regCmd.getLogin(), regCmd.getHaslo());	
-			loginOnChannel.put(regCmd.getLogin(), (SocketChannel) key.channel());
+			usersLoginData.put(regCmd.getLogin(), regCmd.getHaslo());		
 			registeredUsers.put(regCmd.getLogin(), regCmd.getUser());
 			return regCmd.handle(new String("SUCCESS"));
 		}
@@ -133,7 +186,7 @@ public class Server extends BaseCommunication {
 		}
 	}
 	
-	public void unregisterUser(UnregisterCommand unregCmd) {
+	private void unregisterUser(UnregisterCommand unregCmd) {
 		if (this.registeredUsers.containsKey(unregCmd.getLogin())) {
 			this.registeredUsers.remove(unregCmd.getLogin());
 		}
@@ -145,10 +198,9 @@ public class Server extends BaseCommunication {
 		}
 	}
 	
-	public Object loginUser(LoginCommand logCmd) {
+	private Object loginUser(LoginCommand logCmd) {
 		if (this.usersLoginData.containsKey(logCmd.getLogin())) {
 			if (this.usersLoginData.get(logCmd.getLogin()).equals(logCmd.getHaslo())) {
-				this.listLoggedUsers.add(logCmd.getLogin());
 				return new String("SUCCESS");
 			}
 		}
@@ -156,14 +208,29 @@ public class Server extends BaseCommunication {
 	}
 	
   public static void main(String[] args) {
+	  InetAddress inetAddress = null;
+	  int port;
+	  if (args.length == 2) {
+		  try {
+			inetAddress = InetAddress.getByName(args[0]);
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
+		}
+		  port = Integer.parseInt(args[1]);
+	  }
+	  else {
+		  try {
+			inetAddress = InetAddress.getLocalHost();
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
+		}
+		  port = 11111;
+	  }
+	  final InetAddress inetAddress2 = inetAddress;
 	  System.out.println("[MAIN: RUN SERVER]");
 	  Runnable runServer = new Runnable() {
 	      public void run() {
-	        try {
-				new Server(InetAddress.getLocalHost(), 11111).runServer();
-			} catch (UnknownHostException e) {
-				e.printStackTrace();
-			}        
+	        new Server(inetAddress2, port).runServer();        
 	      }
 	    };
 	    threadServer = new Thread(runServer);

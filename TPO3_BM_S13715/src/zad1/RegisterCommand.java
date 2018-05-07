@@ -27,13 +27,13 @@ public class RegisterCommand implements ICommand{
 
 	@Override
 	public Object handle(Object... args) throws Exception {
-		return new RegisterResponse(args[0].toString());
+		return new Response(args[0].toString());
 	}
 
-	public class RegisterResponse implements Serializable {
+	public class Response implements IResponse {
 		private String result;
 		
-		public RegisterResponse(String result) {
+		public Response(String result) {
 			this.result = result;
 		}
 

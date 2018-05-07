@@ -21,5 +21,4 @@ public class LoginCommand implements ICommand {
 	public Object handle(Object... args) throws Exception {
 		return null;
 	}
-
 }

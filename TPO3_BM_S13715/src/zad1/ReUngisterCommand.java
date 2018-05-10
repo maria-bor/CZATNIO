@@ -1,16 +1,19 @@
 package zad1;
 
-import java.io.Serializable;
-
-public class RegisterCommand implements ICommand{
+public class ReUngisterCommand implements ICommand{
 	private String login;
 	private String haslo;
 	private User user;
 	
-	public RegisterCommand(String login, String haslo, User user) {
+	public ReUngisterCommand(String login, String haslo, User user) {
 		this.login = login;
 		this.haslo = haslo;
 		this.user = user;
+	}
+	
+	public ReUngisterCommand(String login, String haslo) {
+		this.login = login;
+		this.haslo = haslo;
 	}
 	
 	public String getLogin() {

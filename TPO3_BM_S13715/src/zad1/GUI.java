@@ -303,7 +303,7 @@ public class GUI extends JFrame implements ActionListener{
 				JOptionPane.showMessageDialog(this, "Pola login i hasło nie mogą być puste!", "Błąd logowania", JOptionPane.WARNING_MESSAGE, null);
 			}
 			else {
-				LoginCommand logCmd = new LoginCommand(this.loginLog.getText(), this.haslo.getText());
+				LoginCommand logCmd = new LoginCommand(this.loginLog.getText(), this.haslo.getText(), true);
 				String s = (String) client.sendAndReceive(logCmd);
 				if (s.equals("SUCCESS")) {
 					client.startThread();
@@ -325,6 +325,12 @@ public class GUI extends JFrame implements ActionListener{
 			showLogSystem();
 			getContentPane().repaint();
 			getContentPane().revalidate();
+			this.textAreaDisable.setText("");
+			this.textAreaDisable.selectAll();
+			this.textAreaDisable.replaceSelection("");
+			this.textAreaEnable.setText("");
+			this.textAreaEnable.selectAll();
+			this.textAreaEnable.replaceSelection("");
 		}
 		else if("Rejestracja".equals(e.getActionCommand())) {
 			if ( this.loginRej.getText().isEmpty() || this.hasloRej.getText().isEmpty() || this.powtorzHaslo.getText().isEmpty() || this.imie.getText().isEmpty() || this.nazwisko.getText().isEmpty()) {
@@ -333,10 +339,10 @@ public class GUI extends JFrame implements ActionListener{
 			else {
 				if (this.hasloRej.getText().equals(this.powtorzHaslo.getText())) {
 					this.user = new User(this.imie.getText(), this.nazwisko.getText());
-					RegisterCommand regCmd = new RegisterCommand(this.loginRej.getText(), this.hasloRej.getText(), user);
+					ReUngisterCommand regCmd = new ReUngisterCommand(this.loginRej.getText(), this.hasloRej.getText(), user);
 					Object o = client.sendAndReceive(regCmd);
 					System.out.println("GUI.responceReceived");
-					RegisterCommand.Response response = (RegisterCommand.Response) o;
+					ReUngisterCommand.Response response = (ReUngisterCommand.Response) o;
 					if (response.getResult().equals("SUCCESS")) {
 						this.loginRej.setText("");
 						this.imie.setText("");
@@ -381,6 +387,13 @@ public class GUI extends JFrame implements ActionListener{
 				this.listLoginToUser.put(entry.getKey(), entry.getValue());
 			}
 		}
+		else {
+			for(Map.Entry<String, User> entry : newlistUser.entrySet()) {
+				model.removeElement(entry.getValue().toString());
+				this.listUser.remove(entry.getValue().toString());
+				this.listLoginToUser.remove(entry.getKey());
+			}
+		}
 		listaKlientow.setModel(model);
 	}
 
@@ -396,7 +409,6 @@ public class GUI extends JFrame implements ActionListener{
 			this.textAreaDisable.append(listaKlientow.getSelectedItem().toString() + ":\n");
 			this.textAreaDisable.append(this.textAreaEnable.getText() + "\n");
 			this.textAreaEnable.setText("");
-//			this.textAreaEnable.setCaretPosition(0);
 			this.textAreaEnable.selectAll();
 			this.textAreaEnable.replaceSelection("");
 		}

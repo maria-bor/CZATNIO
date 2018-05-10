@@ -100,9 +100,9 @@ public class Server extends BaseCommunication {
 		SocketChannel scLocal = (SocketChannel) key.channel();
 		if (dataPackage != null && dataPackage instanceof ICommand) {
 			Object result = null;
-			if (dataPackage instanceof RegisterCommand) {
+			if (dataPackage instanceof ReUngisterCommand) {
 				try {
-					result = registerUser((RegisterCommand) dataPackage);
+					result = registerUser((ReUngisterCommand) dataPackage);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}				
@@ -120,8 +120,13 @@ public class Server extends BaseCommunication {
 			if (result != null)
 				send(scLocal, result);
 			
-			if (dataPackage instanceof LoginCommand && ((String)result).equals("SUCCESS")) {
-				broadcastLoggedUsers((LoginCommand)dataPackage, key, true);
+			if (dataPackage instanceof LoginCommand) {
+				if (((String)result).equals("SUCCESS")) {
+					broadcastLoggedUsers((LoginCommand)dataPackage, key, true);
+				}
+				else if (result == null && !((LoginCommand)dataPackage).isLogging()) {
+					broadcastLoggedUsers((LoginCommand)dataPackage, key, false);
+				}
 			}
 		}
 		else if(dataPackage != null && dataPackage instanceof IResponse) {
@@ -167,7 +172,10 @@ public class Server extends BaseCommunication {
 			this.loggedUsers.put(logCmd.getLogin(), registeredUsers.get(logCmd.getLogin()));
 		}
 		else {
-			//TODO
+			for(Map.Entry<String, SocketChannel> entry : loginOnChannel.entrySet()) {
+				LoggedUsersMapCommand lumc = new LoggedUsersMapCommand(logCmd.getLogin(), registeredUsers.get(logCmd.getLogin()), isUserLogged);
+				send(entry.getValue(), lumc);
+			}
 		}
 	}
 	
@@ -175,7 +183,7 @@ public class Server extends BaseCommunication {
 		return threadServer;
 	}
 	
-	private Object registerUser(RegisterCommand regCmd) throws Exception {
+	private Object registerUser(ReUngisterCommand regCmd) throws Exception {
 		if (!this.usersLoginData.containsKey(regCmd.getLogin())) {
 			usersLoginData.put(regCmd.getLogin(), regCmd.getHaslo());		
 			registeredUsers.put(regCmd.getLogin(), regCmd.getUser());
@@ -199,12 +207,23 @@ public class Server extends BaseCommunication {
 	}
 	
 	private Object loginUser(LoginCommand logCmd) {
-		if (this.usersLoginData.containsKey(logCmd.getLogin())) {
-			if (this.usersLoginData.get(logCmd.getLogin()).equals(logCmd.getHaslo())) {
-				return new String("SUCCESS");
+		if (logCmd.isLogging()) {
+			if (this.usersLoginData.containsKey(logCmd.getLogin())) {
+				if (this.usersLoginData.get(logCmd.getLogin()).equals(logCmd.getHaslo())) {
+					return new String("SUCCESS");
+				}
 			}
+			return new String("FAIL");
 		}
-		return new String("FAIL");
+		else  {
+			if (this.loginOnChannel.containsKey(logCmd.getLogin())) {
+				this.loginOnChannel.remove(logCmd.getLogin());
+			} 
+			if (this.loggedUsers.containsKey(logCmd.getLogin())) {
+				this.loggedUsers.remove(logCmd.getLogin());
+			}
+			return null;
+		}
 	}
 	
   public static void main(String[] args) {

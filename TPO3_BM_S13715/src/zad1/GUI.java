@@ -4,6 +4,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
@@ -122,7 +123,12 @@ public class GUI extends JFrame implements ActionListener{
 		});
 		
 		buttonZalogujSie = new JButton("Zaloguj się");
+		buttonZalogujSie.addActionListener(this);
+		buttonZalogujSie.setActionCommand("zaloguj się");
+		
 		buttonWyrejestrujSie = new JButton("Usuń konto");
+		buttonWyrejestrujSie.addActionListener(this);
+		buttonWyrejestrujSie.setActionCommand("Usuń konto");
 		
 		labelLogin = new JLabel("Login:");
 		loginRej = new JTextField();
@@ -162,26 +168,22 @@ public class GUI extends JFrame implements ActionListener{
 			
 			@Override
 			public void keyPressed(KeyEvent e) {
-				if(e.getKeyCode() == KeyEvent.VK_ENTER) {
+				if(e.getKeyCode() == KeyEvent.VK_ENTER && !e.isShiftDown()) {
 					if (listaKlientow.getSelectedIndex() != 0) {
 						String s = (String)listaKlientow.getSelectedItem();
-						System.out.println("listUser.contains()"+listUser.containsKey(s));
 						MessageCommand msg = new MessageCommand(textAreaEnable.getText(), listUser.get(s), login);
 						client.sendOnly(msg);
 						textAreaEnable.setEditable(false);
 						e.consume();
 					}
-					
 				}			
 			}
 		});
 		
 		listaKlientow = new JComboBox();
-		DefaultComboBoxModel model = (DefaultComboBoxModel) listaKlientow.getModel();
-		model.addElement("Wybierz rozmówcę:");
-		listaKlientow.setModel(model);
-		
-		buttonWylogujSie = new JButton("Wyloguj się");	
+		buttonWylogujSie = new JButton("Wyloguj się");
+		buttonWylogujSie.addActionListener(this);
+		buttonWylogujSie.setActionCommand("wyloguj się");
 		
 		panelFlow = new JPanel(new FlowLayout());
 		panelGrid = new JPanel(new GridLayout(0, 2));
@@ -195,12 +197,6 @@ public class GUI extends JFrame implements ActionListener{
 		loginLog.setText("Wprowadz login");
 		haslo.setForeground(Color.GRAY);
 		haslo.setText("Wprowadz haslo");
-		
-		buttonZalogujSie.addActionListener(this);
-		buttonZalogujSie.setActionCommand("zaloguj się");
-		
-		buttonWyrejestrujSie.addActionListener(this);
-		buttonWyrejestrujSie.setActionCommand("usun konto");
 		
 		panelFlow.add(loginLog);
 		panelFlow.add(haslo);
@@ -240,14 +236,15 @@ public class GUI extends JFrame implements ActionListener{
 		textAreaDisable.setEditable(false); 	
 		textAreaEnable.setEditable(true);
 		
-		buttonWylogujSie.addActionListener(this);
-		buttonWylogujSie.setActionCommand("wyloguj się");
-		
 		panelChat.add(scrolltextAreaDisable, BorderLayout.NORTH);
 		panelChatPomocniczy.add(listaKlientow, BorderLayout.SOUTH);
 		panelChatPomocniczy.add(scrolltextAreaEnable, BorderLayout.NORTH);
 		panelChat.add(panelChatPomocniczy, BorderLayout.CENTER);
 		panelChat.add(buttonWylogujSie, BorderLayout.SOUTH);
+		
+		DefaultComboBoxModel model = (DefaultComboBoxModel) listaKlientow.getModel();
+		model.addElement("Wybierz rozmówcę:");
+		listaKlientow.setModel(model);
 		
 		this.setMinimumSize(new Dimension(500, 500));
 		this.add(panelChat, BorderLayout.CENTER);
@@ -265,29 +262,6 @@ public class GUI extends JFrame implements ActionListener{
 	    this.setLocation(x, y);
 	} 
 	
-//	public void serverResponse(IResponse response) {
-//		if (response != null) {
-//			
-//			if (response instanceof RegisterCommand.Response) {
-//				try {
-//					// TO-DO
-//					
-//				} catch (Exception e) {
-//					e.printStackTrace();
-//				}				
-//			}
-////			else if (cmd instanceof LoginCommand) {
-////				//
-////			}
-////			else if (cmd instanceof UnregisterCommand) {
-////				//
-////			}
-//		}
-//		else {
-//			System.out.println("[Server.READ() FAILED]");
-//		}
-//	}
-	
 	public static void runGUI(Client client){
 	    SwingUtilities.invokeLater(new Runnable() {
 	      public void run() {
@@ -303,22 +277,16 @@ public class GUI extends JFrame implements ActionListener{
 				JOptionPane.showMessageDialog(this, "Pola login i hasło nie mogą być puste!", "Błąd logowania", JOptionPane.WARNING_MESSAGE, null);
 			}
 			else {
-				LoginCommand logCmd = new LoginCommand(this.loginLog.getText(), this.haslo.getText(), true);
-				String s = (String) client.sendAndReceive(logCmd);
-				if (s.equals("SUCCESS")) {
-					client.startThread();
-					login = logCmd.getLogin();
-					getContentPane().removeAll();
-					getContentPane().repaint();
-					getContentPane().revalidate();
-					showChat();			
-				}
-				else {
-					JOptionPane.showMessageDialog(this, "Podany login lub hasło jest niewłaściwe lub brak zarejestrowanego uytkownika!", "Błąd logowania", JOptionPane.WARNING_MESSAGE, null);
-				}
+				LogInOutCommand logCmd = new LogInOutCommand(this.loginLog.getText(), this.haslo.getText(), true);
+				client.sendOnly(logCmd);
+				this.user = null;
+				this.login = this.loginLog.getText();
+				this.loginLog.setEditable(false);
 			}
 		}
 		else if("wyloguj się".equals(e.getActionCommand())) {
+			LogInOutCommand logCmd = new LogInOutCommand(this.loginLog.getText(), this.haslo.getText(), false);
+			client.sendOnly(logCmd);
 			getContentPane().removeAll();
 			getContentPane().repaint();
 			getContentPane().revalidate();
@@ -331,6 +299,10 @@ public class GUI extends JFrame implements ActionListener{
 			this.textAreaEnable.setText("");
 			this.textAreaEnable.selectAll();
 			this.textAreaEnable.replaceSelection("");
+			DefaultComboBoxModel model = (DefaultComboBoxModel) listaKlientow.getModel();
+			model.removeAllElements();
+			listaKlientow.setModel(model);
+			setTitle("");
 		}
 		else if("Rejestracja".equals(e.getActionCommand())) {
 			if ( this.loginRej.getText().isEmpty() || this.hasloRej.getText().isEmpty() || this.powtorzHaslo.getText().isEmpty() || this.imie.getText().isEmpty() || this.nazwisko.getText().isEmpty()) {
@@ -340,21 +312,7 @@ public class GUI extends JFrame implements ActionListener{
 				if (this.hasloRej.getText().equals(this.powtorzHaslo.getText())) {
 					this.user = new User(this.imie.getText(), this.nazwisko.getText());
 					ReUngisterCommand regCmd = new ReUngisterCommand(this.loginRej.getText(), this.hasloRej.getText(), user);
-					Object o = client.sendAndReceive(regCmd);
-					System.out.println("GUI.responceReceived");
-					ReUngisterCommand.Response response = (ReUngisterCommand.Response) o;
-					if (response.getResult().equals("SUCCESS")) {
-						this.loginRej.setText("");
-						this.imie.setText("");
-						this.nazwisko.setText("");
-						this.hasloRej.setText("");
-						this.powtorzHaslo.setText("");
-						JOptionPane.showMessageDialog(this, "Rejestracja przebiegła pomyślnie. Możesz zalogować się :)", "Rejestracja", JOptionPane.INFORMATION_MESSAGE, null);
-					}
-					else {
-						this.user = null;
-						JOptionPane.showMessageDialog(this, "Taki użytkownik już istnieje w systemie!", "Błąd rejestracji", JOptionPane.WARNING_MESSAGE, null);
-					}
+					client.sendOnly(regCmd);
 				}
 				else {
 					JOptionPane.showMessageDialog(this, "Hasła się nie zgadzają!", "Błąd rejestracji", JOptionPane.WARNING_MESSAGE, null);
@@ -366,13 +324,13 @@ public class GUI extends JFrame implements ActionListener{
 				JOptionPane.showMessageDialog(this, "Pola login i hasło nie mogą być puste!", "Błąd usuwania konta", JOptionPane.WARNING_MESSAGE, null);
 			}
 			else {
-				UnregisterCommand unregCmd = new UnregisterCommand(this.loginLog.getText(), this.haslo.getText());
-				//TODO
+				ReUngisterCommand unregCmd = new ReUngisterCommand(this.loginLog.getText(), this.haslo.getText());
+				client.sendOnly(unregCmd);
 			}
 		}
 	}
 	
-	public void updateComboBox(LoggedUsersMapCommand cmd) {
+	public void updateComboBox(NewLoggedUsersMapCommand cmd) {
 		DefaultComboBoxModel model = (DefaultComboBoxModel) listaKlientow.getModel();
 		Map<String, User> newlistUser  = null;
 		try {
@@ -398,16 +356,19 @@ public class GUI extends JFrame implements ActionListener{
 	}
 
 	public void showReceivedText(MessageCommand mc) {
-		System.out.println("showReceivedText()");
+		Font newTextAreaFont = new Font(this.textAreaDisable.getFont().getName(),Font.BOLD, this.textAreaDisable.getFont().getSize());
+		this.textAreaDisable.setFont(newTextAreaFont);
 		textAreaDisable.append(this.listLoginToUser.get(mc.getSender()).toString() + ":\n");
 		textAreaDisable.append(mc.getText() + "\n");
+		Font oldTextAreaFont = new Font(this.textAreaDisable.getFont().getName(),Font.PLAIN, this.textAreaDisable.getFont().getSize());
+		this.textAreaDisable.setFont(oldTextAreaFont);
 	}
 
 	public void showSendedText(Response response) {
-		System.out.println("showSendedText()");
 		if(response.getResult().equals("SUCCESS")) {
-			this.textAreaDisable.append(listaKlientow.getSelectedItem().toString() + ":\n");
+			this.textAreaDisable.append(this.user.toString() + ":\n");
 			this.textAreaDisable.append(this.textAreaEnable.getText() + "\n");
+
 			this.textAreaEnable.setText("");
 			this.textAreaEnable.selectAll();
 			this.textAreaEnable.replaceSelection("");
@@ -416,5 +377,49 @@ public class GUI extends JFrame implements ActionListener{
 			JOptionPane.showMessageDialog(this, "Upps.. Problem z wysyłaniem wiadomości.", "Błąd sendingu.", JOptionPane.WARNING_MESSAGE, null);
 		}
 		this.textAreaEnable.setEditable(true);
+	}
+
+	public void userRegistered(ReUngisterCommand.Response r) {
+		ReUngisterCommand.Response response = (ReUngisterCommand.Response) r;
+		if (response.getResult().equals("SUCCESS")) {
+			this.loginRej.setText("");
+			this.imie.setText("");
+			this.nazwisko.setText("");
+			this.hasloRej.setText("");
+			this.powtorzHaslo.setText("");
+			JOptionPane.showMessageDialog(this, "Rejestracja przebiegła pomyślnie. Możesz zalogować się :)", "Rejestracja", JOptionPane.INFORMATION_MESSAGE, null);
+		}
+		else {
+			this.user = null;
+			JOptionPane.showMessageDialog(this, "Taki użytkownik już istnieje w systemie!", "Błąd rejestracji", JOptionPane.WARNING_MESSAGE, null);
+		}	
+	}
+
+	public void userUnregistered(ReUngisterCommand.Response r) {
+		ReUngisterCommand.Response response = (ReUngisterCommand.Response) r;
+		if (response.getResult().equals("SUCCESS")) {
+			this.loginLog.setText("");
+			this.haslo.setText("");
+			JOptionPane.showMessageDialog(this, "Usunięcie konta przebiegło pomyślnie.", "Usuń konto", JOptionPane.INFORMATION_MESSAGE, null);
+		}
+		else {
+			this.user = null;
+			JOptionPane.showMessageDialog(this, "Taki użytkownik nie istnieje w systemie lub jest zalogowany!", "Usuń konto", JOptionPane.WARNING_MESSAGE, null);
+		}
+	}
+	
+	public void userLogged(LogInOutCommand.Response r) {
+		if (r.getResult().equals("SUCCESS")) {
+			this.user = r.getUser();
+			setTitle(this.user.toString());
+			getContentPane().removeAll();
+			getContentPane().repaint();
+			getContentPane().revalidate();
+			showChat();	
+		}
+		else {
+			JOptionPane.showMessageDialog(this, "Podany login lub hasło jest niewłaściwe lub brak zarejestrowanego użytkownika lub użytkownik jest już zarejestrowny w systemie!", "Błąd logowania", JOptionPane.WARNING_MESSAGE, null);
+		}
+		this.loginLog.setEditable(true);
 	}
 }

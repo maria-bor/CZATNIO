@@ -9,7 +9,6 @@ package zad1;
 public class Main {
 
   public static void main(String[] args) {
-	  System.out.println("[MAIN: START]");
 	  Server.main(args);
 	  Client.main(args);  
 	  Client.main(args);  
@@ -19,6 +18,5 @@ public class Main {
 	  } catch (InterruptedException e) {
 			e.printStackTrace();
 	  }   
-	  System.out.println("[MAIN: END]");
   }
 }

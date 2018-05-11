@@ -6,10 +6,8 @@
 
 package zad1;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -21,12 +19,9 @@ public class Client extends ClientCommunicationThread {
 	
 	public Client(InetAddress inetAddres, int port) {
 		super(inetAddres, port);
-		System.out.println("Client()");
 	}
 	
 	public void sendOnly(ICommand cmd) {
-		System.out.println("[CLIENT.sendOnly()]");
-		System.out.println("isConnected:"+this.scMain.isConnected()+"isOpened:"+this.scMain.isOpen()+"isRegistered:"+this.scMain.isRegistered());
 		this.cmd = cmd;
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		
@@ -55,58 +50,11 @@ public class Client extends ClientCommunicationThread {
 		}
 	}
 	
-	public Object sendAndReceive(ICommand cmd) {
-		System.out.println("CLIENT.sendAndReceive()");
-		this.cmd = cmd;
-		sendOnly(cmd);
-		
-		try{
-			ByteBuffer responseSize = ByteBuffer.allocate(4);
-			int numRead = 0;
-			int totalRead = 0;
-			while (totalRead < 4) {
-				numRead = this.scMain.read(responseSize);
-				if(numRead != -1) {
-					totalRead += numRead;
-				}
-			}
-			if(numRead != 4) {
-				System.out.println("CLIENT: &&&&&&&&&&&&");
-			}
-			byte[] dataSize = new byte[4];
-			dataSize = responseSize.array();
-			int len = 0;
-			// byte[] -> int
-			for (int i = 0; i < 4; ++i) {
-				len |= (dataSize[3-i] & 0xff) << (i << 3);
-			}
-			
-			ByteBuffer responseBuffer = ByteBuffer.allocate(len);
-			totalRead = 0;
-			while (totalRead < len) {
-				numRead = this.scMain.read(responseBuffer);
-				if (numRead != -1) {
-					totalRead += numRead;
-				}
-			}
-			ByteArrayInputStream bais = new ByteArrayInputStream(responseBuffer.array());
-			ObjectInputStream ois = new ObjectInputStream(bais);
-			this.result = ois.readObject();
-			ois.close();
-			return result;
-		}
-		catch(Exception e){
-			e.printStackTrace();
-			return null;
-		}
-	}
-	
 	public void runGUI() {
 		GUI.runGUI(this);
 	}
 	
 	  public static void main(String[] args) {
-		  System.out.println("[MAIN: RUN CLIENT]");
 		  InetAddress inetAddress = null;
 		  int port;
 		  if (args.length == 2) {

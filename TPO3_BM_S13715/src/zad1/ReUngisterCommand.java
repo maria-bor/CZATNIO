@@ -14,6 +14,7 @@ public class ReUngisterCommand implements ICommand{
 	public ReUngisterCommand(String login, String haslo) {
 		this.login = login;
 		this.haslo = haslo;
+		this.user = null;
 	}
 	
 	public String getLogin() {
@@ -30,14 +31,25 @@ public class ReUngisterCommand implements ICommand{
 
 	@Override
 	public Object handle(Object... args) throws Exception {
-		return new Response(args[0].toString());
+		if (getUser() != null) {
+			return new Response(args[0].toString(), true);
+		}
+		else {
+			return new Response(args[0].toString(), false);
+		}
 	}
 
 	public class Response implements IResponse {
 		private String result;
+		private boolean isRegistering;
 		
-		public Response(String result) {
+		public Response(String result, boolean isRegistering) {
 			this.result = result;
+			this.isRegistering = isRegistering;
+		}
+
+		public boolean isRegistering() {
+			return isRegistering;
 		}
 
 		public String getResult() {

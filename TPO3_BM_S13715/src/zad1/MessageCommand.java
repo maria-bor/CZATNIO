@@ -1,8 +1,5 @@
 package zad1;
 
-import zad1.ICommand.IResponse;
-
-@SuppressWarnings("serial")
 public class MessageCommand implements ICommand{
 	private String text;
 	private String recipient;

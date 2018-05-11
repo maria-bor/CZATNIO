@@ -3,7 +3,7 @@ package zad1;
 import java.util.HashMap;
 import java.util.Map;
 
-public class LoggedUsersMapCommand implements ICommand {
+public class NewLoggedUsersMapCommand implements ICommand {
 
 	private Map<String, User> listUser;
 	private boolean isUserLogged; // if log-in or log-out
@@ -12,13 +12,13 @@ public class LoggedUsersMapCommand implements ICommand {
 		return isUserLogged;
 	}
 
-	public LoggedUsersMapCommand(String login, User newUser, boolean isUserLogged) {
+	public NewLoggedUsersMapCommand(String login, User newUser, boolean isUserLogged) {
 		this.listUser = new HashMap<>();
 		this.listUser.put(login, newUser);
 		this.isUserLogged = isUserLogged;
 	}
 	
-	public LoggedUsersMapCommand(Map<String, User> listUser, boolean isUserLogged) {
+	public NewLoggedUsersMapCommand(Map<String, User> listUser, boolean isUserLogged) {
 		this.listUser = listUser;
 		this.isUserLogged = isUserLogged;
 	}

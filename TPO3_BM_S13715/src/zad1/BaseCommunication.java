@@ -20,7 +20,6 @@ public class BaseCommunication {
 	protected Selector selector;
 	
 	public BaseCommunication() {
-		System.out.println("BaseCommunication()");
 		this.dataSizeToRead = new HashMap<SocketChannel, Integer>();
 		try {
 			this.selector = SelectorProvider.provider().openSelector();
@@ -30,7 +29,6 @@ public class BaseCommunication {
 	}
 	
 	protected void read(SelectionKey key) {
-		System.out.println("BC.read()");
 		SocketChannel scLocal = (SocketChannel) key.channel();		
 		Integer s = dataSizeToRead.get(scLocal);
 		int numbetOfBytes = 0;
@@ -40,9 +38,6 @@ public class BaseCommunication {
 			ByteBuffer bb = ByteBuffer.allocate(4);
 			try {				
 				numbetOfBytes = scLocal.read(bb);
-				if (numbetOfBytes != 4) {
-					System.out.println("BC.numbetOfBytes != 4:"+numbetOfBytes);
-				}
 			} 
 			catch (IOException e) {
 			e.printStackTrace();
@@ -52,7 +47,6 @@ public class BaseCommunication {
 			if (numbetOfBytes == -1) {
 				try {
 					key.channel().close();
-					System.out.println("BC.numbetOfBytes == -1");
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
@@ -89,7 +83,6 @@ public class BaseCommunication {
 			if (numbetOfBytes == -1) {
 				try {
 					key.channel().close();
-					System.out.println("BC.numbetOfBytes == -1");
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
@@ -112,7 +105,6 @@ public class BaseCommunication {
 	}
 	
 	protected void send(SocketChannel scLocal, Object result) {
-		System.out.println("BC.send()");
 		byte[] size = new byte[4];
 		byte[] data;
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -131,6 +123,7 @@ public class BaseCommunication {
 			
 			ByteBuffer sizeBB = ByteBuffer.wrap(size);
 			ByteBuffer dataBB = ByteBuffer.wrap(data);
+			
 			scLocal.write(sizeBB);
 			scLocal.write(dataBB);
 			

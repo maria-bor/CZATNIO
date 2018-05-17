@@ -10,8 +10,9 @@ public class Main {
 
   public static void main(String[] args) {
 	  Server.main(args);
-	  Client.main(args);  
-	  Client.main(args);  
+	  Client.main(args);
+	  Client.main(args);
+	  Client.main(args);
 
 	  try {
 		Server.getThreadServer().join();

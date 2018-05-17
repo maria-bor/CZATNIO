@@ -13,6 +13,7 @@ import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,13 +31,11 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
-import zad1.MessageCommand.Response;
 
 public class GUI extends JFrame implements ActionListener{
 
 	private Client client = null;
-	private String login;
-	private User user;
+	private UserClient user;
 	private Map<String, String> listUser; // <User.toString(), login>
 	private Map<String, User> listLoginToUser; // <login, User>
 	
@@ -149,9 +148,11 @@ public class GUI extends JFrame implements ActionListener{
 		buttonRejestracja.setActionCommand("Rejestracja");
 		
 		textAreaDisable = new JTextArea(50,20);
+		textAreaDisable.setLineWrap(true);
 		scrolltextAreaDisable = new JScrollPane(textAreaDisable);
 		scrolltextAreaDisable.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
 		textAreaEnable = new JTextArea(3,20);
+		textAreaEnable.setLineWrap(true);
 		scrolltextAreaEnable = new JScrollPane(textAreaEnable);
 		scrolltextAreaEnable.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
 		textAreaEnable.addKeyListener(new KeyListener() {
@@ -170,9 +171,12 @@ public class GUI extends JFrame implements ActionListener{
 			public void keyPressed(KeyEvent e) {
 				if(e.getKeyCode() == KeyEvent.VK_ENTER && !e.isShiftDown()) {
 					if (listaKlientow.getSelectedIndex() != 0) {
-						String s = (String)listaKlientow.getSelectedItem();
-						MessageCommand msg = new MessageCommand(textAreaEnable.getText(), listUser.get(s), login);
-						client.sendOnly(msg);
+						String s = (String)listaKlientow.getSelectedItem();						
+						try {
+							client.send("Message", listUser.get(s), user.getLogin(), textAreaEnable.getText());
+						} catch (IOException e1) {
+							e1.printStackTrace();
+						}
 						textAreaEnable.setEditable(false);
 						e.consume();
 					}
@@ -277,16 +281,21 @@ public class GUI extends JFrame implements ActionListener{
 				JOptionPane.showMessageDialog(this, "Pola login i hasło nie mogą być puste!", "Błąd logowania", JOptionPane.WARNING_MESSAGE, null);
 			}
 			else {
-				LogInOutCommand logCmd = new LogInOutCommand(this.loginLog.getText(), this.haslo.getText(), true);
-				client.sendOnly(logCmd);
+				try {
+					client.send("Login", this.loginLog.getText(), this.haslo.getText());
+				} catch (IOException e1) {
+					e1.printStackTrace();
+				}
 				this.user = null;
-				this.login = this.loginLog.getText();
 				this.loginLog.setEditable(false);
 			}
 		}
 		else if("wyloguj się".equals(e.getActionCommand())) {
-			LogInOutCommand logCmd = new LogInOutCommand(this.loginLog.getText(), this.haslo.getText(), false);
-			client.sendOnly(logCmd);
+			try {
+				client.send("Logout", this.loginLog.getText());
+			} catch (IOException e1) {
+				e1.printStackTrace();
+			}
 			getContentPane().removeAll();
 			getContentPane().repaint();
 			getContentPane().revalidate();
@@ -310,9 +319,11 @@ public class GUI extends JFrame implements ActionListener{
 			}
 			else {
 				if (this.hasloRej.getText().equals(this.powtorzHaslo.getText())) {
-					this.user = new User(this.imie.getText(), this.nazwisko.getText());
-					ReUngisterCommand regCmd = new ReUngisterCommand(this.loginRej.getText(), this.hasloRej.getText(), user);
-					client.sendOnly(regCmd);
+					try {
+						client.send("Register", this.loginRej.getText(), this.imie.getText(), this.nazwisko.getText(), this.hasloRej.getText());
+					} catch (IOException e1) {
+						e1.printStackTrace();
+					}
 				}
 				else {
 					JOptionPane.showMessageDialog(this, "Hasła się nie zgadzają!", "Błąd rejestracji", JOptionPane.WARNING_MESSAGE, null);
@@ -324,48 +335,58 @@ public class GUI extends JFrame implements ActionListener{
 				JOptionPane.showMessageDialog(this, "Pola login i hasło nie mogą być puste!", "Błąd usuwania konta", JOptionPane.WARNING_MESSAGE, null);
 			}
 			else {
-				ReUngisterCommand unregCmd = new ReUngisterCommand(this.loginLog.getText(), this.haslo.getText());
-				client.sendOnly(unregCmd);
+				try {
+					client.send("Unregister", this.loginLog.getText(), this.haslo.getText());
+				} catch (IOException e1) {
+					e1.printStackTrace();
+				}
 			}
 		}
 	}
 	
-	public void updateComboBox(NewLoggedUsersMapCommand cmd) {
-		DefaultComboBoxModel model = (DefaultComboBoxModel) listaKlientow.getModel();
-		Map<String, User> newlistUser  = null;
-		try {
-			newlistUser = (Map<String, User>)cmd.handle();
-		} catch (Exception e) {
-			e.printStackTrace();
+	public void updateComboBox(String r, boolean isLogged) {
+		String[] str = r.split(" ");
+		if (str.length % 3 != 0) {
+			System.out.println("GUI: !!!!!!!!!!!!!!!!!!!!!!!!!!");
 		}
-		if (cmd.isUserLogged()) {	
-			for(Map.Entry<String, User> entry : newlistUser.entrySet()) {
-				model.addElement(entry.getValue().toString());
-				this.listUser.put(entry.getValue().toString(), entry.getKey());
-				this.listLoginToUser.put(entry.getKey(), entry.getValue());
+		DefaultComboBoxModel model = (DefaultComboBoxModel) listaKlientow.getModel();
+		if (isLogged) {
+			for (int i = 0; i < str.length; i+=3) {
+				model.addElement(str[i+1] + " " + str[i+2]);
+				this.listUser.put(str[i+1] + " " + str[i+2], str[i]);
+				this.listLoginToUser.put(str[i], new User(str[i+1], str[i+2]));
 			}
 		}
 		else {
-			for(Map.Entry<String, User> entry : newlistUser.entrySet()) {
-				model.removeElement(entry.getValue().toString());
-				this.listUser.remove(entry.getValue().toString());
-				this.listLoginToUser.remove(entry.getKey());
+			for (int i = 0; i < str.length; i+=3) {
+				model.removeElement(str[i+1] + " " + str[i+2]);
+				this.listUser.remove(str[i+1] + " " + str[i+2]);
+				this.listLoginToUser.remove(str[i]);
 			}
 		}
 		listaKlientow.setModel(model);
 	}
 
-	public void showReceivedText(MessageCommand mc) {
+	public void showReceivedText(String s) {
+		String[] str = s.split(" ", 2);
 		Font newTextAreaFont = new Font(this.textAreaDisable.getFont().getName(),Font.BOLD, this.textAreaDisable.getFont().getSize());
 		this.textAreaDisable.setFont(newTextAreaFont);
-		textAreaDisable.append(this.listLoginToUser.get(mc.getSender()).toString() + ":\n");
-		textAreaDisable.append(mc.getText() + "\n");
+		if(this.listLoginToUser.containsKey(str[0]))
+			textAreaDisable.append(this.listLoginToUser.get(str[0]).toString() + ":\n");
+		textAreaDisable.append(str[1] + "\n");
 		Font oldTextAreaFont = new Font(this.textAreaDisable.getFont().getName(),Font.PLAIN, this.textAreaDisable.getFont().getSize());
 		this.textAreaDisable.setFont(oldTextAreaFont);
+		
+		try {
+			client.send("MessageResponse", str[0], this.user.getLogin(), "SUCCESS");
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
-	public void showSendedText(Response response) {
-		if(response.getResult().equals("SUCCESS")) {
+	public void showSendedText(String s) {
+		String[] str = s.split(" ", 2);
+		if(str[1].equals("SUCCESS")) {
 			this.textAreaDisable.append(this.user.toString() + ":\n");
 			this.textAreaDisable.append(this.textAreaEnable.getText() + "\n");
 
@@ -379,9 +400,8 @@ public class GUI extends JFrame implements ActionListener{
 		this.textAreaEnable.setEditable(true);
 	}
 
-	public void userRegistered(ReUngisterCommand.Response r) {
-		ReUngisterCommand.Response response = (ReUngisterCommand.Response) r;
-		if (response.getResult().equals("SUCCESS")) {
+	public void userRegistered(String r) {
+		if (r.equals("SUCCESS")) {
 			this.loginRej.setText("");
 			this.imie.setText("");
 			this.nazwisko.setText("");
@@ -390,14 +410,12 @@ public class GUI extends JFrame implements ActionListener{
 			JOptionPane.showMessageDialog(this, "Rejestracja przebiegła pomyślnie. Możesz zalogować się :)", "Rejestracja", JOptionPane.INFORMATION_MESSAGE, null);
 		}
 		else {
-			this.user = null;
 			JOptionPane.showMessageDialog(this, "Taki użytkownik już istnieje w systemie!", "Błąd rejestracji", JOptionPane.WARNING_MESSAGE, null);
 		}	
 	}
 
-	public void userUnregistered(ReUngisterCommand.Response r) {
-		ReUngisterCommand.Response response = (ReUngisterCommand.Response) r;
-		if (response.getResult().equals("SUCCESS")) {
+	public void userUnregistered(String r) {
+		if (r.equals("SUCCESS")) {
 			this.loginLog.setText("");
 			this.haslo.setText("");
 			JOptionPane.showMessageDialog(this, "Usunięcie konta przebiegło pomyślnie.", "Usuń konto", JOptionPane.INFORMATION_MESSAGE, null);
@@ -408,9 +426,10 @@ public class GUI extends JFrame implements ActionListener{
 		}
 	}
 	
-	public void userLogged(LogInOutCommand.Response r) {
-		if (r.getResult().equals("SUCCESS")) {
-			this.user = r.getUser();
+	public void userLogged(String r) {
+		String[] str = r.split(" ");
+ 		if (str[0].equals("SUCCESS")) {
+			this.user = new UserClient(str[1], str[2], str[3]);
 			setTitle(this.user.toString());
 			getContentPane().removeAll();
 			getContentPane().repaint();

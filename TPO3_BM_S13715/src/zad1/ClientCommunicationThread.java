@@ -42,7 +42,11 @@ public class ClientCommunicationThread extends BaseCommunication {
         				}
         				
         				if (key.isReadable()) {
-        					read(key);
+        					try {
+								read(key);
+							} catch (Exception e) {
+								e.printStackTrace();
+							}
         				}
         			}
         			try {
@@ -81,40 +85,31 @@ public class ClientCommunicationThread extends BaseCommunication {
 		}
 	}
 	
-	public void read(SelectionKey key) {
+	public void read(SelectionKey key) throws Exception {
 		super.read(key);
 		SocketChannel scLocal = (SocketChannel) key.channel();
-		if (dataPackage != null) {
-			if (dataPackage instanceof ReUngisterCommand.Response) {
-				ReUngisterCommand.Response r = (ReUngisterCommand.Response)dataPackage;
-				if (r.isRegistering()) {
-					gui.userRegistered(r);
-				}
-				else {
-					gui.userUnregistered(r);
-				}
-			}
-			else if (dataPackage instanceof LogInOutCommand.Response) {
-				LogInOutCommand.Response r = (LogInOutCommand.Response)dataPackage;
-				if (r.isLogging()) {
-					gui.userLogged(r);
-				}			
-			}
-			else if (dataPackage instanceof NewLoggedUsersMapCommand) {
-				gui.updateComboBox((NewLoggedUsersMapCommand)dataPackage);
-			}
-			else if (dataPackage instanceof MessageCommand) {
-				MessageCommand cmd = (MessageCommand)dataPackage;
-				gui.showReceivedText(cmd);
-				try {
-					send(scLocal, (MessageCommand.Response)cmd.handle(new String("SUCCESS")));
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			}
-			else if (dataPackage instanceof MessageCommand.Response) {
-				gui.showSendedText((MessageCommand.Response)dataPackage);
-			}
+		String str = reqString.toString();
+		String[] arr = str.split("\\s+", 2);
+		if (arr[0].equals("Register")) {
+			gui.userRegistered(arr[1]);
+		}
+		else if (arr[0].equals("Unregister")) {
+			gui.userUnregistered(arr[1]);
+		}
+		else if (arr[0].equals("Login")) {
+			gui.userLogged(arr[1]);
+		}
+		else if (arr[0].equals("BroadcastLogin")) {
+			gui.updateComboBox(arr[1], true);
+		}
+		else if (arr[0].equals("BroadcastLogout")) {
+			gui.updateComboBox(arr[1], false);
+		}
+		else if (arr[0].equals("Message")) {
+			gui.showReceivedText(arr[1]);
+		}
+		else if (arr[0].equals("MessageResponse")) {
+			gui.showSendedText(arr[1]);
 		}
 	}
 }

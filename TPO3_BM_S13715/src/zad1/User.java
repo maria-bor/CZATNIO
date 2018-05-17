@@ -1,11 +1,9 @@
 package zad1;
 
-import java.io.Serializable;
-
-public class User implements Serializable{
+public class User {
 	private String imie;
 	private String nazwisko;
-	
+
 	public User(String imie, String nazwisko) {
 		this.imie = imie;
 		this.nazwisko = nazwisko; 
